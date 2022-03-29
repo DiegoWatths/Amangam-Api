@@ -1,0 +1,1 @@
+//Maybe manga schemas or chapters schemas
