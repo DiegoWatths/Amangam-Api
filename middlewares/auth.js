@@ -22,6 +22,6 @@ const verifyToken = (req, res, next) => {
 	}
 }
 
-console.log(parseJwt('token'));
+//console.log(parseJwt('token'));
 
 module.exports = verifyToken;
