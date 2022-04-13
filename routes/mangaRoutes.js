@@ -5,24 +5,6 @@ const multer = require("multer");
 
 const parser = require('../utils/cloudinary');
 
-const cloud_name = process.env.CLOUD_NAME
-const api_key = process.env.API_KEY
-const api_secret = process.env.API_SECRET
-
-cloudinary.v2.config({ 
-    cloud_name: cloud_name,
-    api_key: api_key, 
-    api_secret: api_secret
-  });
-
-const storage = multer.diskStorage({
-    filename: function (req, file, cb) {
-      cb(null, file.fieldname + "-" + Date.now());
-    },
-  });
-
-const upload = multer({storage})
-
 const Manga = require("../models/Manga");
 
 router.get("/allMangas", async (req, res) => {
