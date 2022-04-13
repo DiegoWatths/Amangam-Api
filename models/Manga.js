@@ -6,13 +6,10 @@ const MangaSchema = new Schema(
         title: {type: String, trim: true, unique: true},
         description: {type: String},
         author: {type: String},
-        photos: [{
+        mangaImages: [{
             type: String,
             unique: true
-        }],
-        cloudinary_id: {
-            type: String,
-          }
+        }]
     }
 )
 

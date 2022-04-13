@@ -3,6 +3,8 @@ const router = express.Router();
 const cloudinary = require('cloudinary')
 const multer = require("multer");
 
+const parser = require('../utils/cloudinary');
+
 const cloud_name = process.env.CLOUD_NAME
 const api_key = process.env.API_KEY
 const api_secret = process.env.API_SECRET
@@ -51,30 +53,38 @@ router.get("/manga/:title", async (req, res) => {
     }
 })
 
-router.post('/post', upload.array('pictures', 20), async (req, res) => {
+router.post('/post', parser.array('pictures', 20), async (req, res) => {
+
+    const { title, description, author } = req.body;
+
     try {
         
-        let pictureFiles = req.files;
-        if (!pictureFiles)
-          return res.status(400).json({ message: "No picture attached!" });
-        //map through images and create a promise array using cloudinary upload function
-        let multiplePicturePromise = pictureFiles.map((picture) =>
-          cloudinary.v2.uploader.upload(picture.path)
-        );
-        let imageResponses = await Promise.all(multiplePicturePromise);
-        res.status(200).json({ images: imageResponses });   
-
-        //TO DO:
-        /*let newManga = new Manga({
-            title: req.body.tit, 
-            description: req.body.desc, 
-            author: req.body.auth, 
-            photos: imageResponses
+        //New Function For Images
+        let newManga = new Manga({
+            title, 
+            description, 
+            author
         });
 
-        await newManga.save();
-        //console.table(newManga);
-        res.status(201).json(newManga);*/
+        if (req.files) {
+            const imageURIs = []; //Arreglo de URI de Imagenes
+            const files = req.files;
+            for (const file of files) {
+                const { path } = file;
+                imageURIs.push(path)
+            };
+
+            newManga['mangaImages'] = imageURIs;
+
+            await newManga.save();
+            return res.status(200).json({ newManga });
+        }
+
+        return res.status(400).json({ // in case things don't work out
+            msg: 'Please upload an image'
+        });
+        
+
     } catch (err) {
         res.status(500).json({message: err.message})
     }
