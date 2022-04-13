@@ -4,6 +4,7 @@ const cloudinary = require('cloudinary')
 const multer = require("multer");
 
 const parser = require('../utils/cloudinary');
+const requireAuth = require('../middlewares/auth');
 
 const Manga = require("../models/Manga");
 
@@ -35,7 +36,7 @@ router.get("/manga/:title", async (req, res) => {
     }
 })
 
-router.post('/post', parser.array('pictures', 20), async (req, res) => {
+router.post('/post', requireAuth, parser.array('pictures', 20), async (req, res) => {
 
     const { title, description, author } = req.body;
 
@@ -72,7 +73,7 @@ router.post('/post', parser.array('pictures', 20), async (req, res) => {
     }
 });
 
-router.delete("/del/:title", async (req, res) =>{
+router.delete("/del/:title", requireAuth, async (req, res) =>{
     try{
         const {title: tit} = req.params;
 
