@@ -1,106 +1,171 @@
 const express = require('express');
 const router = express.Router();
+const jwtDecode = require('jwt-decode')
 const bcrypt = require("bcrypt");
-const jwt = require('jsonwebtoken');
-const verifyToken = require('../middlewares/auth')
+const randToken = require('rand-token');
+const jsonwebtoken = require('jsonwebtoken');
+const jwt = require('express-jwt');
+require('dotenv').config()
+
+const app = express()
+
+const SECRET = process.env.SECRET;
+
 require("../utils/database").connect();
 
 const User = require("../models/User");
+const Token = require("../models/Token");
 
 router.use(express.json());
 
+const generateToken = user => {
+ 
+    const token = jsonwebtoken.sign({
+    sub: user._id,
+    email: user.email
+  }, SECRET, {
+    expiresIn: '1h',
+    algorithm: 'HS256'
+  })
+ 
+ 
+  return token
+}
+
+const getRefreshToken = () => randToken.uid(256)
+
+const hashPassword = password => {
+    return new Promise((resolve, reject) => {
+      bcrypt.genSalt(10, (err, salt) => {
+        if(err) reject(err)
+        bcrypt.hash(password, salt, (err, hash) => {
+          if(err) reject(err)
+          resolve(hash)
+        })
+      })
+    })
+  }
+
+const checkPassword = (password, hash) => bcrypt.compare(password, hash)
+
+router.post('/login', async (req, res) => {
+    const { email, password } = req.body
+    const user = await User.findOne({ email })
+    if (!user) { 
+        return res.status(401).json({
+            message: 'User not found!'
+        })
+      }
+
+    const isPasswordValid = await checkPassword(password, user.password)
+
+    if(!isPasswordValid) {
+        return res.status(401).json({
+            message: 'Invalid password!'
+    })}
+
+    const accessToken = generateToken(user)
+    const decodedAccessToken = jwtDecode(accessToken)
+    const accessTokenExpiresAt = decodedAccessToken.exp
+    const refreshToken = getRefreshToken(user)
+
+    const storedRefreshToken = new Token({ refreshToken, user: user._id })
+    await storedRefreshToken.save()
+
+    res.json({
+        accessToken,
+        expiresAt: accessTokenExpiresAt,
+        refreshToken
+    })
+})
+
 router.post("/register", async (req, res) => {
-    var error = []; // <- string array that determines which error there is **NOT-FINAL**
-    const {name: nam, lastname: last, username: usernam, email: emaill, password: pass} = req.body;
+   
+    const { name, lastname, username, email, password } = req.body
+
+    const hashedPassword = await hashPassword(password)
+
+    const userData = {
+        name: name,
+        lastname: lastname,
+        username: username,
+        email: email,
+        password: hashedPassword,
+      }
 
     //Verifying logic
-        /*Verify username (unique)*/
-    try {
-       let newUsern = await User.findOne({username: usernam});
-       if(!(newUsern == null)){
-           error.push("Ese nombre de usuario ya existe. Por favor ingrese un nombre de usuario diferente.")
-       }
-    } catch (error) {
-        console.log(error.message);
-    }
-    
         /*Verify email (unique)*/
-    try {
-       let newEmail = await User.findOne({email: emaill});
-       if(!(newEmail == null)){
-           error.push("Ese correo ya está registrado con otro usuario. Por favor ingrese un correo diferente.")
-       }
-    } catch (error) {
-        console.log(error.message);
+    const existingUser = await User.findOne({ email: email }).lean()
+        
+    if(existingUser) {
+        return res.status(400).json({
+          message: 'Email already exists'
+        })
+      }
+
+    const user = new User(userData)
+    const savedUser = await user.save()
+
+    if(savedUser) {
+        const accessToken = generateToken(savedUser);
+        const decodedToken = jwtDecode(accessToken);
+        const expiresAt = decodedToken.exp;
+
+        return res.status(200).json({
+        message: 'User created successfully',
+        accessToken,
+        expiresAt,
+        refreshToken: getRefreshToken(savedUser),
+        })
     }
-    
-    if(error.length == 0){
+
+app.post('/refreshToken', async (req, res) => {
+        const {refreshToken } = req.body
         try {
-            /*Register logic to the mongo database*/ 
-            const newUser = new User({name: nam, lastname: last, username: usernam, email: emaill, password: pass});
-            newUser.password = await newUser.encryptPassword(newUser.password);
-            
-            await newUser.save();
-
-            const token = jwt.sign({_id: newUser._id}, 'secretkey')
-
-            res.status(200).json({token});
-        } catch (error) {
-            console.log(error.message);
+          const user = await Token.findOne({refreshToken}).select('user')
+      
+          if(!user) {
+            return res.status(401).json({
+              message: 'Invalid token'
+            })
+          }
+      
+          const existingUser = await User.findOne({_id: user.user})
+      
+          if(!existingUser) {
+            return res.status(401).json({
+              message: 'Invalid token'
+            })
+          }
+      
+          const token = generateToken(existingUser)
+          return res.json({accessToken: token})
+        } catch (err) {
+          return res.status(500).json({message: 'Could not refresh token'})
         }
-    }else{
-        res.status(400).json({errors: error});
-    }
+      })
+      
+      const attachUser = (req, res, next) => {
+        const token = req.headers.authorization;
+        if (!token) {
+          return res
+            .status(401)
+            .json({ message: 'Authentication invalid' });
+        }
+        const decodedToken = jwtDecode(token.slice(7));
+      
+        if (!decodedToken) {
+          return res.status(401).json({
+            message: 'There was a problem authorizing the request'
+          });
+        } else {
+          req.user = decodedToken;
+          next();
+        }
+      };
+      
+app.use(attachUser);
+
 });
-
-router.post("/login", async (req, res) => {
-
-    //Using Jwt to authenticate the user 
-    const { email, password } = req.body;
-
-    const user = await User.findOne({email});
-    if (!user) return res.status(401).send('incorrect email address. Please try again');
-
-   const match = await bcrypt.compare(password, user.password);
-
-    if(!(match)){
-        return res.status(401).send('incorrect password for that email address. Please try again');
-    }
-
-    const token = jwt.sign({_id: user._id}, 'secretkey');
-    res.json({token})
-});
-
-//Get User info
-router.get("/user/:email", async (req, res) => {
-    /*Obtain info from id*/ 
-      try {
-        const x = await User.findOne({email: req.params.email});
-        console.log(x);
-        res.json(x);
-    } catch (error) {
-        console.log(error.message);
-    }
-    /*Show said info */
-})
-
-//Testing route NONFINAL
-router.get('/getUsers', async (req, res) =>{
-    try {
-        const x = await User.find();
-        console.log(x);
-        res.send(x);
-    } catch (error) {
-        console.log(error.message);
-    }
-});
-
-//Keeping a log of user requests:
-router.use(async (req, res, next) => {
-    if(req.body){
-        console.table(req.body);
-    }
-    next();
-})
 
 module.exports = router;
