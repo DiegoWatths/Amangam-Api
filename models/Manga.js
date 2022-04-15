@@ -3,12 +3,12 @@ const {Schema, model} = require('mongoose')
 
 const MangaSchema = new Schema(
     {
-        title: {type: String, trim: true, unique: true},
+        title: {type: String, trim: true},
         description: {type: String},
         author: {type: String},
         mangaImages: [{
             type: String,
-            unique: true
+            unique: false,
         }]
     }
 )

@@ -7,6 +7,8 @@ const jsonwebtoken = require('jsonwebtoken');
 const jwt = require('express-jwt');
 require('dotenv').config()
 
+const requireAuth = require('../middlewares/auth');
+
 const app = express()
 
 const SECRET = process.env.SECRET;
@@ -118,6 +120,12 @@ router.post("/register", async (req, res) => {
         refreshToken: getRefreshToken(savedUser),
         })
     }
+
+app.get('/profile/:id', requireAuth, async (req, res) => {
+
+  
+
+})
 
 app.post('/refreshToken', async (req, res) => {
         const {refreshToken } = req.body

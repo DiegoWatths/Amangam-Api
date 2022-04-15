@@ -36,7 +36,7 @@ router.get("/manga/:title", async (req, res) => {
     }
 })
 
-router.post('/post', requireAuth, parser.array('pictures', 20), async (req, res) => {
+router.post('/post', parser.array('pictures', 25), async (req, res) => {
 
     const { title, description, author } = req.body;
 
