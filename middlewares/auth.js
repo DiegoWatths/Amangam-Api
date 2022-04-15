@@ -4,7 +4,7 @@ require ('dotenv').config();
 const SECRET = process.env.SECRET
 
 const requireAuth = jwt({
-	secret: SECRET,
+	secret: process.env.SECRET,
 	algorithms: ['HS256']
   });
 
