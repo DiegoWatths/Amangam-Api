@@ -1,4 +1,5 @@
-# Amangam-Api
+# Amangam-Api 
+# Hecho por Victor Atencio y Diego Watths, estudiantes de Ing. Computación URU 2022A
 Servidor para proyecto #2 de Porgramación a Dsipositivos Móviles, el cual utiliza:
 
 * Express
